@@ -1,0 +1,50 @@
+1. нужно из файла daily_entries извлечь табельный, ФИО, дату входа, время входа, дату выхода, время выхода и график. Найти по такому графику дату входа и время входа в файле work_schedules и сопоставить время входа из daily_entries и время входа из work_schedules. Если время входа из daily_entries раньше, чем из work_schedules, то запомнить это как "Р". Если позже, то запомнить это как "П".
+2. Далее по такому графику найти дату выхода и время выхода в файле work_schedules и сопоставить время выхода из daily_entries и время выхода из work_schedules. Если время выхода из daily_entries раньше, чем из work_schedules, то запомнить это как "Р". Если позже, то запомнить это как "П".
+Если время сопоставить невозможно, то запомнить это как "О".
+3. Структура файла attendance_template:
+Табельный	ФИО	1	2	3	4	5	6	7	8	9	10	11	12	13	14	15	16	17	18	19	20	21	22	23	24	25	26	27	28	29	30
+где числа от 1 до 30 - это наименования дней в месяце.
+5. структура файла work_schedules:
+График	Дата входа	Время входа	Дата выхода	Время выхода
+5. Далее в файле attendance_template начиная со второй строки записать табельный, фио и "Р", "П" или "РП", в зависимости от того, какие значения были на 1 и 2 шаге.
+
+переделывает формат:
+
+# work_time_utils.py
+
+import openpyxl
+
+def read_and_display_daily_entries(file_path="data/work_schedules.xlsx"):
+    try:
+        # Открываем файл Excel
+        workbook = openpyxl.load_workbook(file_path)
+
+        # Выбираем активный лист (может потребоваться настраивать в зависимости от структуры вашего файла)
+        sheet = workbook.active
+
+        # Вывод информации о DataFrame
+        print("Информация о DataFrame из файла work_schedules.xlsx:")
+        print(f"Количество строк: {sheet.max_row}")
+        print(f"Количество столбцов: {sheet.max_column}")
+
+        # Вывод заголовков
+        headers = [cell.value for cell in sheet[1]]
+        print("Заголовки столбцов:", headers)
+
+        # Вывод первых 20 строк в консоль
+        print("Первые 20 строк из файла work_schedules.xlsx:")
+        for row in sheet.iter_rows(min_row=2, max_row=21, values_only=True):
+            formatted_row = ['В' if cell is None else cell for cell in row]
+            print(formatted_row)
+    except Exception as e:
+        print(f"Ошибка при чтении файла: {e}")
+
+# Вызов функции в main.py
+from work_time_utils import read_and_display_daily_entries
+
+def main():
+    read_and_display_daily_entries("data/work_schedules.xlsx")
+    # Другие операции...
+
+if __name__ == "__main__":
+    main()
