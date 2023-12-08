@@ -3,7 +3,7 @@ import openpyxl
 import os
 from tqdm import tqdm
 
-def process_daily_entries(file_path="data/daily_entries.xlsx", output_dir="data/graph", limit=10):
+def process_daily_entries(file_path="data/daily_entries.xlsx", output_dir="data/graph", limit=1000):
     print("Запущена функция process_daily_entries")
     try:
         # Загрузка данных из файла daily_entries (нужно пересохранить через блокнот)
@@ -59,24 +59,53 @@ def process_daily_entries(file_path="data/daily_entries.xlsx", output_dir="data/
 
                 # индекс строки из graph_data
                 if not matching_row.empty:
-                    print("Найдена соответствующая строка в графике.")
 
-                    # Сравнение времени
-                    if not matching_row.iloc[0, 0] == formatted_row[3]:
-                        print("Различие времени.")
-                        # Написать комментарий в новом excel файле
-                        comment = f"Различие времени: {matching_row.iloc[0, 0]} вместо {formatted_row[3]}"
-                        write_comment_to_excel(comment, formatted_row, comment_file_path)
+                    if row_list[6] in ['График 98 бригада 1', 'График 98 бригада 2']:
+                        matching_time = matching_row.iloc[0, 1]
+
+                        if pd.notna(matching_time) and formatted_row[3] <= matching_time:
+                            comment = f"Вход вовремя"
+                            row_list[3] = matching_row.iloc[0, 1]
+                            write_comment_to_excel(comment, formatted_row, comment_file_path, row_list)
+                        elif pd.isna(matching_time):
+                            comment = "Выход в выходной день"
+                            write_comment_to_excel(comment, formatted_row, comment_file_path, row_list)
+                        else:
+                            comment = f"Проверить вход"
+                            write_comment_to_excel(comment, formatted_row, comment_file_path, row_list)
+
+                    if row_list[6] in ['График 1 бригада 1', 'График 1 бригада 2', 'График 1 бригада 3','График 1 бригада 4',
+                                       'График 2 бригада 1', 'График 2 бригада 2', 'График 2 бригада 3','График 2 бригада 4',
+                                       'График 3 бригада 1', 'График 3 бригада 2', 'График 3 бригада 3','График 3 бригада 4',
+                                       'График 5 бригада 1', 'График 5 бригада 2', 'График 5 бригада 3', 'График 97 бригада 1']:
+                        matching_time = matching_row.iloc[0, 1]
+
+                        if pd.notna(matching_time) and formatted_row[3] <= matching_time:
+                            comment = f"Вход вовремя"
+                            row_list[3] = matching_row.iloc[0, 1]
+                            write_comment_to_excel(comment, formatted_row, comment_file_path, row_list)
+                        elif pd.isna(matching_time):
+                            comment = "Выход в выходной день"
+                            write_comment_to_excel(comment, formatted_row, comment_file_path, row_list)
+                        else:
+                            comment = f"Проверить вход"
+                            write_comment_to_excel(comment, formatted_row, comment_file_path, row_list)
+                    # Реализовать сравнение времени
+                    # if not formatted_row[3] == matching_row.iloc[0, 1]:
+                    #     print("Различие времени.")
+                    #     # Написать комментарий в новом excel файле
+                    #     comment = f"Различие времени: {formatted_row[3]} вместо {matching_row.iloc[0, 1]}"
+                    #     write_comment_to_excel(comment, formatted_row, comment_file_path)
                 else:
                     print("Не найдена соответствующая строка в графике.")
                     # Написать комментарий в новом excel файле
                     comment = f"График не содержит информации для {row_list[2]}"
-                    write_comment_to_excel(comment, formatted_row, comment_file_path)
+                    write_comment_to_excel(comment, formatted_row, comment_file_path, row_list)
             else:
                 print("Файл графика не найден.")
                 # Написать комментарий в новом excel файле
                 comment = f"Файл графика не найден для {row_list[-1]}"
-                write_comment_to_excel(comment, formatted_row, comment_file_path)
+                write_comment_to_excel(comment, formatted_row, comment_file_path, row_list)
 
             # Условие для остановки после обработки 10 строк
             if index + 1 >= limit:
@@ -86,7 +115,7 @@ def process_daily_entries(file_path="data/daily_entries.xlsx", output_dir="data/
     except Exception as e:
         print(f"Произошла ошибка: {e}")
 
-def write_comment_to_excel(comment, row_list, comment_file_path):
+def write_comment_to_excel(comment, row_list, comment_file_path, formatted_row):
     try:
         # Загрузка существующего файла
         xls = openpyxl.load_workbook(comment_file_path)
@@ -97,12 +126,21 @@ def write_comment_to_excel(comment, row_list, comment_file_path):
         # Определение следующей свободной строки
         next_row = sheet.max_row + 1
 
+        # Обновление значения в row_list[3] для текущей строки
+        row_list[3] = sheet.cell(row=next_row, column=4).value
+
         # Запись данных в новую строку
-        for col_num, value in enumerate([comment] + row_list, 1):
+        formatted_row[2] = formatted_row[2].strftime("%d.%m.%Y")  # Преобразование формата даты
+        formatted_row[4] = formatted_row[4].strftime("%d.%m.%Y")
+        for col_num, value in enumerate([comment] + formatted_row, 1):
+        # for col_num, value in enumerate([comment] + row_list[1:], 1):
             sheet.cell(row=next_row, column=col_num, value=value)
 
         # Сохранение изменений
         xls.save(comment_file_path)
+        xls.close()  # Добавьте эту строку для корректного закрытия файла после сохранения
+
+
 
     except Exception as e:
         print(f"Ошибка при записи комментария в файл: {e}")
@@ -111,7 +149,7 @@ def write_comment_to_excel(comment, row_list, comment_file_path):
 # from work_time_utils import process_daily_entries
 
 def main():
-    process_daily_entries(limit=10)
+    process_daily_entries(limit=1000)
 
 if __name__ == "__main__":
     main()
