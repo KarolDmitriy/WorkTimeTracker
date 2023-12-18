@@ -1,87 +1,42 @@
-import pandas as pd
 import openpyxl
-import os
-from tqdm import tqdm
+
+def duplicate_and_append_rows(sheet, start_row, start_column, end_row, end_column, times):
+    for _ in range(times):
+        for row in range(start_row, end_row + 1):
+            new_row = []
+            for column in range(start_column, end_column + 1):
+                new_row.append(sheet.cell(row=row, column=column).value)
+            sheet.append(new_row)
 
 
-def process_daily_entries(file_path="data/daily_entries.xlsx", output_dir="data/graph"):
-    try:
-        # Загрузка данных из файла daily_entries
-        daily_entries = pd.read_excel(file_path, engine='openpyxl')
-
-        # Создание директории output_files, если её нет
-        # os.makedirs(output_dir, exist_ok=True)
-
-        # Итерация по строкам из файла daily_entries
-        for index, row in tqdm(daily_entries.iterrows(), total=len(daily_entries), desc="Processing Entries"):
-            # Преобразование строки в список
-            row_list = row.tolist()
-
-            # Путь к файлу с графиком
-            graph_file_path = os.path.join(output_dir, row_list[-1] + ".xlsx")
-
-            print(f"Обрабатываемая строка: {row_list}")
-            print(f"Путь к файлу графика: {graph_file_path}")
-
-            # # Проверка наличия файла с графиком
-            # if os.path.exists(graph_file_path):
-            #     print("Файл графика существует.")
-            #
-            #     # Загрузка данных из файла с графиком
-            #     graph_data = pd.read_excel(graph_file_path, engine='openpyxl')
-            #
-            #     # Поиск строки по значению второго индекса из строки daily_entries
-            #     matching_row = graph_data[graph_data.iloc[:, 0] == row_list[2]]
-            #
-            #     if not matching_row.empty:
-            #         print("Найдена соответствующая строка в графике.")
-            #
-            #         # Сравнение времени
-            #         if matching_row.iloc[0, 0] != row_list[3]:
-            #             print("Различие времени.")
-            #             # Написать комментарий в новом excel файле
-            #             comment = f"Различие времени: {matching_row.iloc[0, 0]} вместо {row_list[3]}"
-            #             write_comment_to_excel(comment, row_list)
-            #     else:
-            #         print("Не найдена соответствующая строка в графике.")
-            #         # Написать комментарий в новом excel файле
-            #         comment = f"График не содержит информацию для {row_list[2]}"
-            #         write_comment_to_excel(comment, row_list)
-            # else:
-            #     print("Файл графика не найден.")
-            #     # Написать комментарий в новом excel файле
-            #     comment = f"Файл графика не найден для {row_list[-1]}"
-            #     write_comment_to_excel(comment, row_list)
-    except Exception as e:
-        print(f"Ошибка: {e}")
-
-
-# def write_comment_to_excel(comment, row_list):
-#     try:
-#         # Создание нового excel файла с комментариями
-#         comment_file_path = "output_files/comments.xlsx"
-#         if not os.path.exists(comment_file_path):
-#             df = pd.DataFrame(
-#                 columns=["Комментарий", "Табельный", "ФИО", "Дата входа", "Время входа", "Дата выхода", "Время выхода",
-#                          "График"])
-#             df.to_excel(comment_file_path, index=False, engine='openpyxl')
+# def duplicate_and_append_rows(sheet, start_row, start_column, end_row, end_column, times):
+#     for _ in range(times):
+#         for row in range(start_row, end_row + 1):
+#             new_row = []
+#             for column in range(start_column, end_column + 1):
+#                 source_cell = sheet.cell(row=row, column=column)
+#                 new_cell = sheet.cell(row=sheet.max_row + 1, column=column, value=source_cell.value)
 #
-#         # Добавление строки с комментарием
-#         comment_df = pd.DataFrame([[comment] + row_list],
-#                                   columns=["Комментарий", "Табельный", "ФИО", "Дата входа", "Время входа",
-#                                            "Дата выхода", "Время выхода", "График"])
-#         comment_df.to_excel(comment_file_path, index=False, header=False, mode='a', engine='openpyxl')
-#     except Exception as e:
-#         print(f"Ошибка при записи комментария в файл: {e}")
+#                 # Копирование форматирования
+#                 new_cell.font = copy(source_cell.font)
+#                 new_cell.border = copy(source_cell.border)
+#                 new_cell.fill = copy(source_cell.fill)
+#                 new_cell.number_format = copy(source_cell.number_format)
+#                 new_cell.protection = copy(source_cell.protection)
+#                 new_cell.alignment = copy(source_cell.alignment)
 
+# Открываем файл
+file_path = 'data/attendance_template.xlsx'
+workbook = openpyxl.load_workbook(file_path)
+sheet = workbook.active
 
-# Вызов функции в main.py
-from work_time_utils import process_daily_entries
+# Указываем параметры диапазона и количество вставок
+start_row, end_row = 13, 16
+start_column, end_column = 1, 42  # AP соответствует 42
+times_to_duplicate = 10
 
+# Дублируем и добавляем строки 10 раз
+duplicate_and_append_rows(sheet, start_row, start_column, end_row, end_column, times_to_duplicate)
 
-def main():
-    process_daily_entries()
-
-
-if __name__ == "__main__":
-    main()
+# Сохраняем изменения
+workbook.save(file_path)
