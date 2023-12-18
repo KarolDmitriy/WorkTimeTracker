@@ -3,12 +3,21 @@ import openpyxl
 import os
 from tqdm import tqdm
 import logging
+from openpyxl.styles import PatternFill
+
 
 # Настройка логирования
 logging.basicConfig(filename='app.log', level=logging.ERROR)
 
+# Массив для хранения комментариев
+comments_array = []
 
-def process_daily_entries(file_path="data/daily_entries.xlsx", output_dir="data/graph", limit=300):
+# Цвета ячеек для разных типов комментариев
+COLOR_CHECK_ENTRY = "FFA500"  # Оранжевый
+COLOR_MISSING_GRAPH = "FF0000"  # Красный
+
+
+def process_daily_entries(file_path="data/daily_entries.xlsx", output_dir="data/graph", limit=26824):
     print("Запущена функция process_daily_entries")
     try:
         # Загрузка данных из файла daily_entries (нужно пересохранить через блокнот)
@@ -45,12 +54,14 @@ def process_daily_entries(file_path="data/daily_entries.xlsx", output_dir="data/
 
                 # Преобразование даты в нужный формат для сравнения
                 formatted_date = row_list[2].strftime("%d.%m.%Y")
+                formatted_date_exit = row_list[4].strftime("%d.%m.%Y")
 
                 # Поиск строки по значению второго индекса из строки daily_entries
-                matching_row = graph_data[graph_data.iloc[:, 0] == formatted_date]
+                matching_row = graph_data.loc[graph_data.iloc[:, 0] == formatted_date]
+                matching_row_exit = graph_data.loc[graph_data.iloc[:, 2] == formatted_date_exit]
 
                 # индекс строки из graph_data
-                if not matching_row.empty:
+                if not matching_row.empty and not matching_row_exit.empty:
                     valid_graphs = ['График 98 бригада 1', 'График 98 бригада 2',
                                     'График 1 бригада 1', 'График 1 бригада 2', 'График 1 бригада 3',
                                     'График 1 бригада 4', 'График 2 бригада 1', 'График 2 бригада 2',
@@ -61,6 +72,7 @@ def process_daily_entries(file_path="data/daily_entries.xlsx", output_dir="data/
 
                     if row_list[6] in valid_graphs:
                         matching_time = matching_row.iloc[0, 1]
+                        matching_time_exit = matching_row_exit.iloc[0, 3]
 
                         # Проверка входа
                         if pd.notna(matching_time) and formatted_row[3] <= matching_time:
@@ -71,12 +83,12 @@ def process_daily_entries(file_path="data/daily_entries.xlsx", output_dir="data/
                             comment = f"Проверить вход"
 
                         # Проверка выхода
-                        # if pd.notna(matching_time) and formatted_row[5] <= matching_time:
-                        #     comment += " - Выход вовремя"
-                        # # elif pd.isna(matching_time):
-                        # #     comment = "Выход в выходной день"
-                        # else:
-                        #     comment += " - Проверить выход"
+                        if not matching_row_exit.empty and pd.notna(matching_time_exit) and formatted_row[5] >= matching_time_exit:
+                            comment += " - Выход вовремя"
+                        elif pd.isna(matching_time_exit):
+                            pass
+                        else:
+                            comment += " - Проверить выход"
 
                         # Добавление проверки на название графика
                         if row_list[6] == "5 дней 8 часов":
@@ -86,13 +98,16 @@ def process_daily_entries(file_path="data/daily_entries.xlsx", output_dir="data/
                 else:
                     comment = f"Файл графика не найден для {row_list[-1]}"
 
-                # Написать комментарий в новом excel файле
-                write_comment_to_excel(comment, formatted_row, comment_file_path, row_list)
+                # Написать комментарий в массив
+                write_comment_to_array(comment, formatted_row, row_list)
 
             # Условие для остановки после обработки limit строк
             if index + 1 >= limit:
                 print(f"Обработано {limit} строк. Завершаем выполнение.")
                 break
+
+        # Записать комментарии в Excel после обработки всех строк
+        write_comments_to_excel(comment_file_path)
 
     except Exception as e:
         error_message = f"Произошла ошибка: {e}"
@@ -112,7 +127,14 @@ def format_date_in_row(row_list):
     ]
 
 
-def write_comment_to_excel(comment, formatted_row, comment_file_path, row_list):
+def write_comment_to_array(comment, formatted_row, row_list):
+    global comments_array
+    comments_array.append([comment, row_list[0], row_list[1],
+                           formatted_row[2], formatted_row[3], formatted_row[4],
+                           formatted_row[5], row_list[6]])
+
+
+def write_comments_to_excel(comment_file_path):
     try:
         # Загрузка существующего файла
         xls = openpyxl.load_workbook(comment_file_path)
@@ -123,26 +145,32 @@ def write_comment_to_excel(comment, formatted_row, comment_file_path, row_list):
         # Определение следующей свободной строки
         next_row = sheet.max_row + 1
 
-        # Обновление значения в row_list[3] для текущей строки
-        row_list[3] = sheet.cell(row=next_row, column=4).value
+        for comment_row in comments_array:
+            # Обновление значения в row_list[3] для текущей строки
+            comment_row[3] = comment_row[3] if isinstance(comment_row[3], str) else comment_row[3].strftime("%d.%m.%Y")
 
-        # Запись данных в новую строку
-        formatted_date = formatted_row[2] if isinstance(formatted_row[2], str) else formatted_row[2].strftime("%d.%m.%Y")
-        formatted_exit_date = formatted_row[4] if isinstance(formatted_row[4], str) else formatted_row[4].strftime(
-            "%d.%m.%Y")
+            # Запись данных в новую строку
+            for col_num, value in enumerate(comment_row, 1):
+                cell = sheet.cell(row=next_row, column=col_num, value=value)
 
-        for col_num, value in enumerate([comment, row_list[0], row_list[1], formatted_date,
-                                         formatted_row[3], formatted_exit_date, formatted_row[5], row_list[6]], 1):
-            sheet.cell(row=next_row, column=col_num, value=value)
+                # Проверка, содержится ли фраза "Проверить вход" в комментарии
+                if "Проверить вход" in str(value) or "Проверить выход" in str(value) or "Выход в выходной день" in str(value) \
+                        or "выход в выходной день" in str(value) or "Файл графика не найден" in str(value) \
+                        or "вход по временному пропуску" in str(value):
+                    # Применение цвета к ячейке
+                    cell.fill = PatternFill(start_color="FFFF00", end_color="FFFF00", fill_type="solid")
+
+            next_row += 1
 
         # Сохранение изменений
         xls.save(comment_file_path)
         xls.close()  # Добавьте эту строку для корректного закрытия файла после сохранения
 
     except Exception as e:
-        error_message = f"Ошибка при записи комментария в файл: {e}"
+        error_message = f"Ошибка при записи комментариев в файл: {e}"
         logging.error(error_message)
         print(error_message)
+
 
 
 # Вызов функции в main.py
