@@ -17,7 +17,7 @@ COLOR_CHECK_ENTRY = "FFA500"  # Оранжевый
 COLOR_MISSING_GRAPH = "FF0000"  # Красный
 
 
-def process_daily_entries(file_path="data/daily_entries.xlsx", output_dir="data/graph", limit=26824):
+def process_daily_entries(file_path="data/daily_entries3.xlsx", output_dir="data/graph", limit=17359):
     print("Запущена функция process_daily_entries")
     try:
         # Загрузка данных из файла daily_entries (нужно пересохранить через блокнот)

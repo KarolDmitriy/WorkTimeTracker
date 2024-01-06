@@ -1,42 +1,59 @@
 import openpyxl
-
-def duplicate_and_append_rows(sheet, start_row, start_column, end_row, end_column, times):
-    for _ in range(times):
-        for row in range(start_row, end_row + 1):
-            new_row = []
-            for column in range(start_column, end_column + 1):
-                new_row.append(sheet.cell(row=row, column=column).value)
-            sheet.append(new_row)
+import pandas as pd
+from openpyxl import load_workbook
 
 
-# def duplicate_and_append_rows(sheet, start_row, start_column, end_row, end_column, times):
-#     for _ in range(times):
-#         for row in range(start_row, end_row + 1):
-#             new_row = []
-#             for column in range(start_column, end_column + 1):
-#                 source_cell = sheet.cell(row=row, column=column)
-#                 new_cell = sheet.cell(row=sheet.max_row + 1, column=column, value=source_cell.value)
-#
-#                 # Копирование форматирования
-#                 new_cell.font = copy(source_cell.font)
-#                 new_cell.border = copy(source_cell.border)
-#                 new_cell.fill = copy(source_cell.fill)
-#                 new_cell.number_format = copy(source_cell.number_format)
-#                 new_cell.protection = copy(source_cell.protection)
-#                 new_cell.alignment = copy(source_cell.alignment)
+def update_employee_absences(input_file, absences_file="data/employee_absences.xlsx"):
+    try:
+        # Открываем указанный файл excel
+        workbook = load_workbook(input_file)
 
-# Открываем файл
-file_path = 'data/attendance_template.xlsx'
-workbook = openpyxl.load_workbook(file_path)
-sheet = workbook.active
+        # Записываем значение ячейки F7 в переменную numberOfDays
+        sheet = workbook.active
+        numberOfDays = sheet.cell(row=7, column=6).value
 
-# Указываем параметры диапазона и количество вставок
-start_row, end_row = 13, 16
-start_column, end_column = 1, 42  # AP соответствует 42
-times_to_duplicate = 10
+        # Если ячейка F7 содержит целое число, используем его
+        if not isinstance(numberOfDays, int):
+            numberOfDays = 0
 
-# Дублируем и добавляем строки 10 раз
-duplicate_and_append_rows(sheet, start_row, start_column, end_row, end_column, times_to_duplicate)
+        # Открываем файл employee_absences
+        absences_workbook = load_workbook(absences_file)
+        absences_sheet = absences_workbook.active
 
-# Сохраняем изменения
-workbook.save(file_path)
+        startRow = 13
+
+        # Записываем значения ячеек M1, P1, AQ13 в переменную monthYearGraph
+        monthYearGraph = str(sheet.cell(row=1, column=13).value) +" "+ str(sheet.cell(row=1, column=16).value) +" "+ str(
+            sheet.cell(row=startRow, column=43).value)
+
+        # Находим ячейку с таким же значением, как в monthYearGraph
+        absences_value_cell = None
+        for row in absences_sheet.iter_rows(min_col=1, max_col=1, min_row=1, max_row=absences_sheet.max_row):
+            for cell in row:
+                if cell.value == monthYearGraph:
+                    absences_value_cell = cell
+                    break
+            if absences_value_cell:
+                # print(f"absences_value_cell ", absences_value_cell.column)
+                break
+
+        # Если ячейка найдена, копируем диапазон значений
+        if absences_value_cell:
+            source_range = absences_sheet.iter_cols(min_col=absences_value_cell.column + 1,
+                                                    max_col=absences_value_cell.column + numberOfDays,
+                                                    min_row=absences_value_cell.row, max_row=absences_value_cell.row)
+            values_to_paste = [cell[0].value for cell in source_range]
+            print(values_to_paste)
+            # Вставляем диапазон в указанный файл excel
+            for i, value in enumerate(values_to_paste):
+                sheet.cell(row=13, column=i + 6, value=value)
+
+        # Сохраняем изменения
+        workbook.save(input_file)
+        absences_workbook.save(absences_file)
+
+    except Exception as e:
+        print(f"Ошибка: {e}")
+
+# Пример использования
+update_employee_absences("data/Пробирная.xlsx")
