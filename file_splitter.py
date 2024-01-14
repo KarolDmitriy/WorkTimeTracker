@@ -1,6 +1,7 @@
-# file_splitter.py
-
 import openpyxl
+import os
+import tkinter as tk
+from tkinter import filedialog, messagebox
 from datetime import datetime, time
 
 def format_date(date):
@@ -18,15 +19,12 @@ def create_work_schedule_file(output_file, rows):
         workbook = openpyxl.Workbook()
         sheet = workbook.active
 
-        # Добавляем строку заголовков
         header_row = ["Дата входа", "Время входа", "Дата выхода", "Время выхода"]
         sheet.append(header_row)
 
-        # Записываем остальные строки в новый файл
         for row in rows:
             sheet.append(row)
 
-        # Сохраняем новый файл
         workbook.save(output_file)
 
     except Exception as e:
@@ -34,12 +32,9 @@ def create_work_schedule_file(output_file, rows):
 
 def split_work_schedules(input_file="data/work_schedules.xlsx", output_folder="data/graph"):
     try:
-        # Открываем файл work_schedules
         schedules_workbook = openpyxl.load_workbook(input_file)
         schedules_sheet = schedules_workbook.active
 
-        # Создаем папку для выходных файлов, если её нет
-        import os
         if not os.path.exists(output_folder):
             os.makedirs(output_folder)
 
@@ -47,43 +42,81 @@ def split_work_schedules(input_file="data/work_schedules.xlsx", output_folder="d
         current_schedule_rows = []
 
         for row in schedules_sheet.iter_rows(min_row=2, values_only=True):
-            # Если текущий график изменился, создаем новый файл
             if row[0] != current_schedule:
                 if current_schedule_rows:
-                    # Создаем новый файл и копируем строки
                     output_file = f"{output_folder}/{current_schedule}.xlsx"
                     create_work_schedule_file(output_file, current_schedule_rows)
 
-                # Обновляем текущий график и очищаем строки
                 current_schedule = row[0]
                 current_schedule_rows = []
 
-            # Форматируем дату и время
             formatted_row = [
                 format_date(row[1]),
                 format_time(row[2]),
                 format_date(row[3]),
                 format_time(row[4]),
-                # ... другие столбцы
             ]
 
-            # Добавляем текущую строку к текущему графику
             current_schedule_rows.append(formatted_row)
 
-        # Создаем файл для последнего графика
         if current_schedule_rows:
             output_file = f"{output_folder}/{current_schedule}.xlsx"
             create_work_schedule_file(output_file, current_schedule_rows)
 
+        messagebox.showinfo("Успешно", "Файлы успешно разделены!")
+
     except Exception as e:
         print(f"Ошибка при выполнении операций: {e}")
-
-# Вызов функции в main.py
-from file_splitter import split_work_schedules
+        messagebox.showerror("Ошибка", f"Произошла ошибка: {e}")
 
 def main():
-    split_work_schedules()
-    # Другие операции...
+    root = tk.Tk()
+    root.withdraw()
+
+    # Создаем главное окно
+    main_window = tk.Tk()
+    main_window.title("Разделение графиков")
+
+    # Функция для обработки нажатия кнопки
+    def process_button_click():
+        # Запускаем функцию разделения графиков
+        split_work_schedules(input_file_var.get(), output_folder_var.get())
+
+    # Создаем и настраиваем виджеты
+    input_file_label = tk.Label(main_window, text="Выберите файл сграфиками:")
+    input_file_label.pack()
+
+    input_file_var = tk.StringVar()
+    input_file_entry = tk.Entry(main_window, textvariable=input_file_var, state="readonly", width=50)
+    input_file_entry.pack()
+
+    def choose_input_file():
+        input_file = filedialog.askopenfilename(title="Выберите файл",
+                                                 filetypes=[("Excel files", "*.xlsx"), ("All files", "*.*")])
+        input_file_var.set(input_file)
+
+    input_file_button = tk.Button(main_window, text="Обзор", command=choose_input_file)
+    input_file_button.pack()
+
+    output_folder_label = tk.Label(main_window, text="Выберите папку для сохранения:")
+    output_folder_label.pack()
+
+    output_folder_var = tk.StringVar()
+    output_folder_entry = tk.Entry(main_window, textvariable=output_folder_var, state="readonly", width=50)
+    output_folder_entry.pack()
+
+    def choose_output_folder():
+        output_folder = filedialog.askdirectory(title="Выберите папку для сохранения")
+        output_folder_var.set(output_folder)
+
+    output_folder_button = tk.Button(main_window, text="Обзор", command=choose_output_folder)
+    output_folder_button.pack()
+
+    process_button = tk.Button(main_window, text="Выполнить", command=process_button_click)
+    process_button.pack()
+
+    # Запускаем главный цикл обработки событий
+    main_window.mainloop()
 
 if __name__ == "__main__":
     main()
