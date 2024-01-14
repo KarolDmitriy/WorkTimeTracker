@@ -1,7 +1,8 @@
-import openpyxl
+# указываем файл output_file, проставляем в ячейку F7 количество дней в текущем месяце, и он заполняется плановыми часами
 from openpyxl import load_workbook
 
-def update_employee_absences(input_file, absences_file="data/employee_absences.xlsx", output_file="data/Пробирная.xlsx"):
+def update_employee_absences(input_file, absences_file="data/employee_absences.xlsx",
+                             output_file="data/ПАЛ/Аналитическая лаборатория январь 2024.xlsx"):
     try:
         # Открываем указанный файл excel
         workbook = load_workbook(input_file)
@@ -44,7 +45,16 @@ def update_employee_absences(input_file, absences_file="data/employee_absences.x
 
                 # Вставляем диапазон в указанный файл excel
                 for i, value in enumerate(values_to_paste):
-                    sheet.cell(row=rowToName, column=i + 6, value=value)
+                    # Проверяем, есть ли буквы в конце значения и является ли значение строкой
+                    if value and isinstance(value, str) and value[-1].isalpha():
+                        # Убираем букву в конце, заменяем запятую на точку, преобразуем в float и вставляем
+                        value_without_letter = value[:-1].replace(',', '.')
+                        sheet.cell(row=rowToName, column=i + 6, value=float(value_without_letter))
+                        # В следующую ячейку вставляем цифру 8
+                        sheet.cell(row=rowToName + 1, column=i + 6, value=8)
+                    else:
+                        # Если нет букв в конце или не является строкой, просто вставляем значение
+                        sheet.cell(row=rowToName, column=i + 6, value=value)
 
             # Итерация по работникам
             startRow += 4
@@ -58,4 +68,4 @@ def update_employee_absences(input_file, absences_file="data/employee_absences.x
         print(f"Ошибка: {e}")
 
 # Пример использования
-update_employee_absences("data/Пробирная.xlsx")
+update_employee_absences("data/ПАЛ/Аналитическая лаборатория январь 2024.xlsx")
