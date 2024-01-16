@@ -1,7 +1,7 @@
 # указываем файл output_file, проставляем в ячейку F7 количество дней в текущем месяце, и он заполняется плановыми часами
 from openpyxl import load_workbook
 
-def update_employee_absences(input_file, absences_file="data/employee_absences.xlsx",
+def update_employee_absences(input_file, absences_file="data/work_schedules_for_the_year.xlsx",
                              output_file="data/ПАЛ/Аналитическая лаборатория январь 2024.xlsx"):
     try:
         # Открываем указанный файл excel

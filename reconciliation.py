@@ -5,7 +5,7 @@ from openpyxl.styles import PatternFill
 import tkinter as tk
 from tkinter import filedialog
 
-def check_plan_actual_time(comments_file, work_schedule_file):
+def check_plan_actual_time(comments_file, work_schedule_file, absence_file):
     # Загрузка данных из файла comments.xlsx
     comments_df = pd.read_excel(comments_file)
 
@@ -14,6 +14,9 @@ def check_plan_actual_time(comments_file, work_schedule_file):
     sheet = workbook.active
     month_name = sheet['M1'].value
     year = sheet['P1'].value
+
+    # Загрузка данных из файла отсутствия.xlsx
+    absence_df = pd.read_excel(absence_file)
 
     # Словарь для соответствия месяцев на русском языке и их числового представления
     month_dict = {'Январь': 1, 'Февраль': 2, 'Март': 3, 'Апрель': 4, 'Май': 5, 'Июнь': 6,
@@ -29,12 +32,26 @@ def check_plan_actual_time(comments_file, work_schedule_file):
     comments_df['Дата входа'] = pd.to_datetime(comments_df['Дата входа'], format='%d.%m.%Y', errors='coerce')
 
     # Итерация по табельным номерам (каждый 4-й ряд начиная с B13)
-    for row_offset in range(0, last_day_of_month.day * 4, 4):
+    for row_offset in range(sheet.min_row - 13, sheet.max_row - 12, 4):
         current_start_cell = sheet.cell(row=13 + row_offset, column=2).value
 
         # Проверяем наличие табельного номера в data frame
         if current_start_cell not in comments_df['Табельный'].values:
-            continue  # Завершаем выполнение, если табельный номер отсутствует
+            # Проверяем, есть ли запись об отсутствии для данного табельного номера
+            absence_record = absence_df[(absence_df['Таб.№'] == current_start_cell)]
+            if not absence_record.empty:
+                # Получаем букву из колонки "Вид отсутствия"
+                absence_letter = absence_record.iloc[0]['Вид отсутствия']
+                # Итерация по дням текущего месяца
+                for day in range(1, last_day_of_month.day + 1):
+                    current_date = datetime(year, month_dict[month_name], day)
+                    # Проверяем, попадает ли текущая дата в период отсутствия
+                    if (absence_record['Начало'].iloc[0] <= current_date <= absence_record['Истечение'].iloc[0]):
+                        # Записываем букву в ячейку соответствующего дня в файле work_schedule_file
+                        sheet.cell(row=13 + row_offset, column=day + 5).value = absence_letter
+                        # Закрашиваем ячейку
+                        sheet.cell(row=13 + row_offset, column=day + 5).fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
+            continue  # Пропускаем выполнение, если табельный номер отсутствует
         else:
             # Ищем строки в data frame с таким же значением, как в стартовой ячейке
             matching_rows = comments_df[comments_df['Табельный'] == current_start_cell]
@@ -58,14 +75,34 @@ def check_plan_actual_time(comments_file, work_schedule_file):
                         else:
                             # Неверный комментарий, закрасить ячейку F13 красным
                             sheet.cell(row=13 + row_offset, column=day + 5).fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
-
+                            # Проверяем, есть ли запись об отсутствии для данной даты и табельного номера
+                            absence_record = absence_df[(absence_df['Таб.№'] == current_start_cell) & (absence_df['Начало'] <= current_date) & (absence_df['Истечение'] >= current_date)]
+                            if not absence_record.empty:
+                                # Получаем букву из колонки "Вид отсутствия"
+                                absence_letter = absence_record.iloc[0]['Вид отсутствия']
+                                # Записываем букву в ячейку соответствующего дня в файле work_schedule_file
+                                sheet.cell(row=13 + row_offset, column=day + 5).value = absence_letter
                     else:
                         # Значение в F13 отсутствует, закрасить ячейку F13 красным
                         sheet.cell(row=13 + row_offset, column=day + 5).fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
+                        # Проверяем, есть ли запись об отсутствии для данной даты и табельного номера
+                        absence_record = absence_df[(absence_df['Таб.№'] == current_start_cell) & (absence_df['Начало'] <= current_date) & (absence_df['Истечение'] >= current_date)]
+                        if not absence_record.empty:
+                            # Получаем букву из колонки "Вид отсутствия"
+                            absence_letter = absence_record.iloc[0]['Вид отсутствия']
+                            # Записываем букву в ячейку соответствующего дня в файле work_schedule_file
+                            sheet.cell(row=13 + row_offset, column=day + 5).value = absence_letter
                 else:
                     if pd.notna(f13_value):
                         # День отсутствует в data frame, закрасить ячейку F13 красным
                         sheet.cell(row=13 + row_offset, column=day + 5).fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
+                        # Проверяем, есть ли запись об отсутствии для данной даты и табельного номера
+                        absence_record = absence_df[(absence_df['Таб.№'] == current_start_cell) & (absence_df['Начало'] <= current_date) & (absence_df['Истечение'] >= current_date)]
+                        if not absence_record.empty:
+                            # Получаем букву из колонки "Вид отсутствия"
+                            absence_letter = absence_record.iloc[0]['Вид отсутствия']
+                            # Записываем букву в ячейку соответствующего дня в файле work_schedule_file
+                            sheet.cell(row=13 + row_offset, column=day + 5).value = absence_letter
 
     # Сохранение изменений в файле
     workbook.save(work_schedule_file)
@@ -82,20 +119,26 @@ def check_plan_actual_time_gui():
         work_schedule_file_path = filedialog.askopenfilename(title="Выберите файл с табелем", filetypes=[("Excel files", "*.xlsx")])
         work_schedule_file_var.set(work_schedule_file_path)
 
+    def browse_absence_file():
+        absence_file_path = filedialog.askopenfilename(title="Выберите файл отсутствия", filetypes=[("Excel files", "*.xlsx")])
+        absence_file_var.set(absence_file_path)
+
     def run_check():
         comments_file_path = comments_file_var.get()
         work_schedule_file_path = work_schedule_file_var.get()
+        absence_file_path = absence_file_var.get()
 
-        if not comments_file_path or not work_schedule_file_path:
-            result_label.config(text="Select both files", fg="red")
+        if not comments_file_path or not work_schedule_file_path or not absence_file_path:
+            result_label.config(text="Select all files", fg="red")
             return
 
-        check_plan_actual_time(comments_file_path, work_schedule_file_path)
+        check_plan_actual_time(comments_file_path, work_schedule_file_path, absence_file_path)
         result_label.config(text="Проверка выполнена!", fg="green")
 
     # Variables to store file paths
     comments_file_var = tk.StringVar()
     work_schedule_file_var = tk.StringVar()
+    absence_file_var = tk.StringVar()
 
     # Label and button for choosing comments_file
     tk.Label(root, text="Выберите файл с комментариями:").grid(row=0, column=0)
@@ -107,12 +150,18 @@ def check_plan_actual_time_gui():
     tk.Entry(root, textvariable=work_schedule_file_var, state="readonly", width=50).grid(row=1, column=1)
     tk.Button(root, text="Browse", command=browse_work_schedule_file).grid(row=1, column=2)
 
+
+    # Label and button for choosing absence_file
+    tk.Label(root, text="Выберите файл отсутствия:").grid(row=2, column=0)
+    tk.Entry(root, textvariable=absence_file_var, state="readonly", width=50).grid(row=2, column=1)
+    tk.Button(root, text="Browse", command=browse_absence_file).grid(row=2, column=2)
+
     # Button to run the check
-    tk.Button(root, text="Проверить", command=run_check).grid(row=2, column=0, columnspan=3, pady=10)
+    tk.Button(root, text="Проверить", command=run_check).grid(row=3, column=0, columnspan=3, pady=10)
 
     # Label for displaying the result
     result_label = tk.Label(root, text="", fg="black")
-    result_label.grid(row=3, column=0, columnspan=3)
+    result_label.grid(row=4, column=0, columnspan=3)
 
     root.mainloop()
 
