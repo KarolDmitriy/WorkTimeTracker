@@ -64,7 +64,7 @@ def write_comments_to_excel(comment_file_path):
 
         # Сохранение изменений
         xls.save(comment_file_path)
-        xls.close()  # Добавьте эту строку для корректного закрытия файла после сохранения
+        xls.close()
 
     except Exception as e:
         error_message = f"Ошибка при записи комментариев в файл: {e}"
@@ -74,7 +74,7 @@ def write_comments_to_excel(comment_file_path):
 def process_daily_entries(file_path):
     print("Запущена функция process_daily_entries")
     try:
-        # Загрузка данных из файла daily_entries (нужно пересохранить через блокнот)
+        # Загрузка данных из файла daily_entries
         daily_entries = pd.read_excel(file_path, sheet_name='Лист1')
 
         # Создание директории, если она отсутствует

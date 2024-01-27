@@ -5,17 +5,17 @@ from openpyxl.styles import PatternFill
 import tkinter as tk
 from tkinter import filedialog
 
-def check_plan_actual_time(comments_file, work_schedule_file, absence_file):
+def check_plan_actual_time(comments_file, work_schedule_file, absence_file, start_date, end_date):
     # Загрузка данных из файла comments.xlsx
     comments_df = pd.read_excel(comments_file)
 
-    # Открытие файла Пробирная.xlsx и чтение значений ячеек M1 и P1
+    # Открытие файла с табелем и чтение значений ячеек M1 и P1
     workbook = load_workbook(work_schedule_file)
     sheet = workbook.active
     month_name = sheet['M1'].value
     year = sheet['P1'].value
 
-    # Загрузка данных из файла отсутствия.xlsx
+    # Загрузка данных из файла отсутствия
     absence_df = pd.read_excel(absence_file)
 
     # Словарь для соответствия месяцев на русском языке и их числового представления
@@ -47,10 +47,12 @@ def check_plan_actual_time(comments_file, work_schedule_file, absence_file):
                     current_date = datetime(year, month_dict[month_name], day)
                     # Проверяем, попадает ли текущая дата в период отсутствия
                     if (absence_record['Начало'].iloc[0] <= current_date <= absence_record['Истечение'].iloc[0]):
-                        # Записываем букву в ячейку соответствующего дня в файле work_schedule_file
-                        sheet.cell(row=13 + row_offset, column=day + 5).value = absence_letter
-                        # Закрашиваем ячейку
-                        sheet.cell(row=13 + row_offset, column=day + 5).fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
+                        # Записываем букву в ячейку соответствующего дня в файле work_schedule_file,
+                        # только если дата входит в заданный диапазон
+                        if start_date <= current_date <= end_date:
+                            sheet.cell(row=13 + row_offset, column=day + 5).value = absence_letter
+                            # Закрашиваем ячейку
+                            sheet.cell(row=13 + row_offset, column=day + 5).fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
             continue  # Пропускаем выполнение, если табельный номер отсутствует
         else:
             # Ищем строки в data frame с таким же значением, как в стартовой ячейке
@@ -71,41 +73,51 @@ def check_plan_actual_time(comments_file, work_schedule_file, absence_file):
                         matching_row = matching_rows_for_date
 
                         if not matching_row.empty and 'Вход вовремя - Выход вовремя' in matching_row.iloc[0]['Комментарий']:
-                            continue  # Вход вовремя - Выход вовремя, все в порядке
+                            continue
                         else:
-                            # Неверный комментарий, закрасить ячейку F13 красным
+                            # Неверный комментарий, закрасить ячейку F13 красным,
+                            # только если дата входит в заданный диапазон
+                            if start_date <= current_date <= end_date:
+                                sheet.cell(row=13 + row_offset, column=day + 5).fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
+                                # Проверяем, есть ли запись об отсутствии для данной даты и табельного номера
+                                absence_record = absence_df[(absence_df['Таб.№'] == current_start_cell) & (absence_df['Начало'] <= current_date) & (absence_df['Истечение'] >= current_date)]
+                                if not absence_record.empty:
+                                    # Получаем букву из колонки "Вид отсутствия"
+                                    absence_letter = absence_record.iloc[0]['Вид отсутствия']
+                                    # Записываем букву в ячейку соответствующего дня в файле work_schedule_file,
+                                    # только если дата входит в заданный диапазон
+                                    sheet.cell(row=13 + row_offset, column=day + 5).value = absence_letter
+                    else:
+                        # Значение в F13 отсутствует, закрасить ячейку F13 красным,
+                        # только если дата входит в заданный диапазон
+                        if start_date <= current_date <= end_date:
                             sheet.cell(row=13 + row_offset, column=day + 5).fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
                             # Проверяем, есть ли запись об отсутствии для данной даты и табельного номера
                             absence_record = absence_df[(absence_df['Таб.№'] == current_start_cell) & (absence_df['Начало'] <= current_date) & (absence_df['Истечение'] >= current_date)]
                             if not absence_record.empty:
                                 # Получаем букву из колонки "Вид отсутствия"
                                 absence_letter = absence_record.iloc[0]['Вид отсутствия']
-                                # Записываем букву в ячейку соответствующего дня в файле work_schedule_file
+                                # Записываем букву в ячейку соответствующего дня в файле work_schedule_file,
+                                # только если дата входит в заданный диапазон
                                 sheet.cell(row=13 + row_offset, column=day + 5).value = absence_letter
-                    else:
-                        # Значение в F13 отсутствует, закрасить ячейку F13 красным
-                        sheet.cell(row=13 + row_offset, column=day + 5).fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
-                        # Проверяем, есть ли запись об отсутствии для данной даты и табельного номера
-                        absence_record = absence_df[(absence_df['Таб.№'] == current_start_cell) & (absence_df['Начало'] <= current_date) & (absence_df['Истечение'] >= current_date)]
-                        if not absence_record.empty:
-                            # Получаем букву из колонки "Вид отсутствия"
-                            absence_letter = absence_record.iloc[0]['Вид отсутствия']
-                            # Записываем букву в ячейку соответствующего дня в файле work_schedule_file
-                            sheet.cell(row=13 + row_offset, column=day + 5).value = absence_letter
                 else:
                     if pd.notna(f13_value):
-                        # День отсутствует в data frame, закрасить ячейку F13 красным
-                        sheet.cell(row=13 + row_offset, column=day + 5).fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
-                        # Проверяем, есть ли запись об отсутствии для данной даты и табельного номера
-                        absence_record = absence_df[(absence_df['Таб.№'] == current_start_cell) & (absence_df['Начало'] <= current_date) & (absence_df['Истечение'] >= current_date)]
-                        if not absence_record.empty:
-                            # Получаем букву из колонки "Вид отсутствия"
-                            absence_letter = absence_record.iloc[0]['Вид отсутствия']
-                            # Записываем букву в ячейку соответствующего дня в файле work_schedule_file
-                            sheet.cell(row=13 + row_offset, column=day + 5).value = absence_letter
+                        # День отсутствует в data frame, закрасить ячейку F13 красным,
+                        # только если дата входит в заданный диапазон
+                        if start_date <= current_date <= end_date:
+                            sheet.cell(row=13 + row_offset, column=day + 5).fill = PatternFill(start_color="FF0000", end_color="FF0000", fill_type="solid")
+                            # Проверяем, есть ли запись об отсутствии для данной даты и табельного номера
+                            absence_record = absence_df[(absence_df['Таб.№'] == current_start_cell) & (absence_df['Начало'] <= current_date) & (absence_df['Истечение'] >= current_date)]
+                            if not absence_record.empty:
+                                # Получаем букву из колонки "Вид отсутствия"
+                                absence_letter = absence_record.iloc[0]['Вид отсутствия']
+                                # Записываем букву в ячейку соответствующего дня в файле work_schedule_file,
+                                # только если дата входит в заданный диапазон
+                                sheet.cell(row=13 + row_offset, column=day + 5).value = absence_letter
 
     # Сохранение изменений в файле
     workbook.save(work_schedule_file)
+
 
 def check_plan_actual_time_gui():
     root = tk.Tk()
@@ -128,42 +140,67 @@ def check_plan_actual_time_gui():
         work_schedule_file_path = work_schedule_file_var.get()
         absence_file_path = absence_file_var.get()
 
+        start_date_str = start_date_var.get()  # Получаем начальную дату из виджета Entry
+        end_date_str = end_date_var.get()  # Получаем конечную дату из виджета Entry
+
         if not comments_file_path or not work_schedule_file_path or not absence_file_path:
             result_label.config(text="Select all files", fg="red")
             return
 
-        check_plan_actual_time(comments_file_path, work_schedule_file_path, absence_file_path)
+        # Проверяем, что введены начальная и конечная даты
+        if not start_date_str or not end_date_str:
+            result_label.config(text="Enter start and end dates", fg="red")
+            return
+
+        # Преобразовываем строки с датами в объекты datetime
+        start_date = datetime.strptime(start_date_str, '%d.%m.%Y')
+        end_date = datetime.strptime(end_date_str, '%d.%m.%Y')
+
+        # Проверяем, что начальная дата меньше или равна конечной
+        if start_date > end_date:
+            result_label.config(text="Start date must be before or equal to end date", fg="red")
+            return
+
+        check_plan_actual_time(comments_file_path, work_schedule_file_path, absence_file_path, start_date, end_date)
         result_label.config(text="Проверка выполнена!", fg="green")
 
-    # Variables to store file paths
+    # Переменные для хранения путей к файлам
     comments_file_var = tk.StringVar()
     work_schedule_file_var = tk.StringVar()
     absence_file_var = tk.StringVar()
 
-    # Label and button for choosing comments_file
+    # Метка и кнопка для выбора файла комментариев
     tk.Label(root, text="Выберите файл с комментариями:").grid(row=0, column=0)
     tk.Entry(root, textvariable=comments_file_var, state="readonly", width=50).grid(row=0, column=1)
     tk.Button(root, text="Browse", command=browse_comments_file).grid(row=0, column=2)
 
-    # Label and button for choosing work_schedule_file
+    # Метка и кнопка для выбора файла work_schedule_file
     tk.Label(root, text="Выберите файл с табелем:").grid(row=1, column=0)
     tk.Entry(root, textvariable=work_schedule_file_var, state="readonly", width=50).grid(row=1, column=1)
     tk.Button(root, text="Browse", command=browse_work_schedule_file).grid(row=1, column=2)
 
 
-    # Label and button for choosing absence_file
+    # Метка и кнопка для выбора файла отсутствия
     tk.Label(root, text="Выберите файл отсутствия:").grid(row=2, column=0)
     tk.Entry(root, textvariable=absence_file_var, state="readonly", width=50).grid(row=2, column=1)
     tk.Button(root, text="Browse", command=browse_absence_file).grid(row=2, column=2)
 
-    # Button to run the check
+    # Кнопка для запуска проверки
     tk.Button(root, text="Проверить", command=run_check).grid(row=3, column=0, columnspan=3, pady=10)
 
-    # Label for displaying the result
+    # Метка для отображения результата
     result_label = tk.Label(root, text="", fg="black")
     result_label.grid(row=4, column=0, columnspan=3)
 
+    # Добавляем новые метки и виджеты Entry для ввода дат
+    tk.Label(root, text="Введите начальную дату (дд.мм.гггг):").grid(row=4, column=0)
+    start_date_var = tk.StringVar()
+    tk.Entry(root, textvariable=start_date_var, width=15).grid(row=4, column=1)
+
+    tk.Label(root, text="Введите конечную дату (дд.мм.гггг):").grid(row=5, column=0)
+    end_date_var = tk.StringVar()
+    tk.Entry(root, textvariable=end_date_var, width=15).grid(row=5, column=1)
+
     root.mainloop()
 
-# Example usage
 check_plan_actual_time_gui()
