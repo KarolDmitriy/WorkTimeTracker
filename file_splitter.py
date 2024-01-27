@@ -83,7 +83,7 @@ def main():
         split_work_schedules(input_file_var.get(), output_folder_var.get())
 
     # Создаем и настраиваем виджеты
-    input_file_label = tk.Label(main_window, text="Выберите файл сграфиками:")
+    input_file_label = tk.Label(main_window, text="Выберите файл с графиками:")
     input_file_label.pack()
 
     input_file_var = tk.StringVar()
