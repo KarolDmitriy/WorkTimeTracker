@@ -1,11 +1,19 @@
-# указываем файл output_file, проставляем в ячейку F7 количество дней в текущем месяце, и он заполняется плановыми часами
 from openpyxl import load_workbook
+import tkinter as tk
+from tkinter import filedialog
 
-def update_employee_absences(input_file, absences_file="data/work_schedules_for_the_year.xlsx",
-                             output_file="data/ПАЛ/Аналитическая лаборатория январь 2024.xlsx"):
+def update_employee_absences(absences_file=None, output_file=None):
+    if absences_file is None:
+        # Если absences_file не предоставлен, позволяет пользователю выбрать файл
+        absences_file = filedialog.askopenfilename(title="Выберите файл с отсутствиями", filetypes=[("Excel files", "*.xlsx")])
+
+    if output_file is None:
+        # Если output_file не предоставлен, позволяет пользователю выбрать файл
+        output_file = filedialog.asksaveasfilename(title="Выберите файл для сохранения", filetypes=[("Excel files", "*.xlsx")])
+
     try:
         # Открываем указанный файл excel
-        workbook = load_workbook(input_file)
+        workbook = load_workbook(output_file)
 
         # Записываем значение ячейки F7 в переменную numberOfDays
         sheet = workbook.active
@@ -67,5 +75,54 @@ def update_employee_absences(input_file, absences_file="data/work_schedules_for_
     except Exception as e:
         print(f"Ошибка: {e}")
 
-# Пример использования
-update_employee_absences("data/ПАЛ/Аналитическая лаборатория январь 2024.xlsx")
+# Создаем простой графический интерфейс
+def create_gui():
+    root = tk.Tk()
+    root.title("Update Employee Absences")
+
+    def browse_absences_file():
+        nonlocal absences_file_var
+        absences_file_path = filedialog.askopenfilename(title="Выберите файл с отсутствиями", filetypes=[("Excel files", "*.xlsx")])
+        absences_file_var.set(absences_file_path)
+
+    def browse_output_file():
+        nonlocal output_file_var
+        output_file_path = filedialog.asksaveasfilename(title="Выберите файл для сохранения", filetypes=[("Excel files", "*.xlsx")])
+        output_file_var.set(output_file_path)
+
+    def run_update():
+        absences_file_path = absences_file_var.get()
+        output_file_path = output_file_var.get()
+
+        if not absences_file_path or not output_file_path:
+            result_label.config(text="Выберите все файлы", fg="red")
+            return
+
+        update_employee_absences(absences_file_path, output_file_path)
+        result_label.config(text="Обновление выполнено!", fg="green")
+
+    # Переменные для хранения путей к файлам
+    absences_file_var = tk.StringVar()
+    output_file_var = tk.StringVar()
+
+    # Метка и кнопка для выбора absences_file
+    tk.Label(root, text="Выберите файл с отсутствиями:").grid(row=0, column=0)
+    tk.Entry(root, textvariable=absences_file_var, state="readonly", width=50).grid(row=0, column=1)
+    tk.Button(root, text="Browse", command=browse_absences_file).grid(row=0, column=2)
+
+    # Метка и кнопка для выбора output_file
+    tk.Label(root, text="Выберите файл для сохранения:").grid(row=1, column=0)
+    tk.Entry(root, textvariable=output_file_var, state="readonly", width=50).grid(row=1, column=1)
+    tk.Button(root, text="Browse", command=browse_output_file).grid(row=1, column=2)
+
+    # Кнопка для запуска обновления
+    tk.Button(root, text="Обновить", command=run_update).grid(row=2, column=0, columnspan=3, pady=10)
+
+    # Метка для отображения результата
+    result_label = tk.Label(root, text="", fg="black")
+    result_label.grid(row=3, column=0, columnspan=3)
+
+    root.mainloop()
+
+# Запускаем графический интерфейс
+create_gui()
